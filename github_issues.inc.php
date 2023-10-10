@@ -3,14 +3,15 @@
 function plugin_github_issues_convert() {
     $num  = func_num_args();
     if ( $num < 3 ) {
-        return "Usage: #github_issues([PAT],[owner],[repo],[limit = 5])";
+        return "Usage: #github_issues([PAT],[owner],[repo],[state],[limit = 5])";
     }
 
     $args = func_get_args();
     $pat = $args[0];
     $owner = $args[1];
     $repo = $args[2];
-    $limit = $args[3];
+    $state = $args[3];
+    $limit = $args[4];
     if ($limit == '') {
       $limit = 5;
     }
@@ -20,14 +21,14 @@ import domify from 'https://cdn.pika.dev/domify@1.4.1';
 import dayjs from 'https://cdn.pika.dev/dayjs@1.11.6';
 
 document.addEventListener('DOMContentLoaded', async () => {
-  const issues = (await getIssues('$domain', '$project_id')).slice(0, $limit);
+  const issues = (await getIssues('$owner', '$repo', '$state')).slice(0, $limit);
   const issuesTableDOM = makeIssuesTableDOM(issues);
-  document.querySelector('#gitlab-issues-placeholder-$project_id').appendChild(domify(issuesTableDOM));
-  document.querySelector('#gitlab-issues-loading-$project_id').style = 'display: none;';
+  document.querySelector('#github-issues-placeholder-$owner-$repo').appendChild(domify(issuesTableDOM));
+  document.querySelector('#github-issues-loading-$owner-$repo').style = 'display: none;';
 });
 
-async function getIssues(domain, project_id) {
-  const url = `https://api.github.com/repos/\${owner}/\${repo}/issues?sort=updated`;
+async function getIssues(owner, repo, state) {
+  const url = `https://api.github.com/repos/\${owner}/\${repo}/issues?sort=updated&state=\${state}`;
   const options = { headers: { Authorization: `Bearer $pat` }};
   const res = await fetch(url, options);
   const issues = await res.json();
@@ -38,33 +39,33 @@ function makeIssuesTableDOM(issues) {
   const issueRowDOMs = issues.map(buildIssueRowHTML).join('\\n');
   const issuesTableDOM = `
 <style>
-  .gitlab-issues table {
+  .github-issues table {
     border-collapse: collapse;
     border-spacing: 0;
     margin: 0.8em;
   }
-  .gitlab-issues td, th {
+  .github-issues td, th {
     border: 1px solid gray;
     padding: 0.4em;
   }
-  .gitlab-issues th {
+  .github-issues th {
     background-color: #eef5ff;
   }
-  .gitlab-issues td, .gitlab-issues th {
+  .github-issues td, .github-issues th {
     font-size: 1em;
   }
-  .gitlab-issues a.icon:before {
+  .github-issues a.icon:before {
     display: none;
   }
-  .gitlab-issues .issue-state-opened {
+  .github-issues .issue-state-open {
     background: #bbdefb;
   }
-  .gitlab-issues .issue-state-closed {
+  .github-issues .issue-state-closed {
     background: #ffcdd2;
 ;
   }
 </style>
-<div class="gitlab-issues">
+<div class="github-issues">
   <table>
     <thead>
       <th>作成日</th>
@@ -86,24 +87,27 @@ function makeIssuesTableDOM(issues) {
 
 function buildIssueRowHTML(issue) {
   const authorHTML = `
-<a class="icon" href="\${issue.author.web_url}">
-  <img src="\${issue.author.avatar_url}" title="\${issue.author.name} (@\${issue.author.username})" width="16" alt="\${issue.author.name} (@\${issue.author.username})">
-  @\${issue.author.username}
+<a class="icon" href="\${issue.user.html_url}">
+  <img src="\${issue.user.avatar_url}" title="\${issue.user.login} (@\${issue.user.login})" width="16" alt="\${issue.user.login} (@\${issue.user.login})">
+  @\${issue.user.login}
 </a>`;
 
   const assigneeHTML = issue.assignee == null ? '-' : `
-<a class="icon" href="\${issue.assignee.web_url}">
-  <img src="\${issue.assignee.avatar_url}" title="\${issue.assignee.name} (@\${issue.assignee.username})" width="16" alt="\${issue.author.name} (@\${issue.author.username})">
-  @\${issue.assignee.username}
+<a class="icon" href="\${issue.assignee.html_url}">
+  <img src="\${issue.assignee.avatar_url}" title="\${issue.assignee.login} (@\${issue.assignee.login})" width="16" alt="\${issue.user.login} (@\${issue.user.login})">
+  @\${issue.assignee.login}
 </a>`;
+  const labelHTML = issue.labels.map( l => {
+    return l.name
+  }).join('');
 
   return `
 <tr>
   <td>\${formatDateTime(issue.created_at)}</td>
   <td>\${formatDateTime(issue.updated_at)}</td>
   <td class="issue-state-\${issue.state}">\${issue.state}</td>
-  <td><a href="\${issue.web_url}">\${issue.title}</a></td>
-  <td>\${issue.labels.join(', ')}</td>
+  <td><a href="\${issue.html_url}">\${issue.title}</a></td>
+  <td>\${labelHTML}</td>
   <td>\${authorHTML}</td>
   <td>\${assigneeHTML}</td>
 </tr>`;
@@ -114,8 +118,8 @@ function formatDateTime(datetime) {
 }
 EOC;
 
-    return '<div id="gitlab-issues-placeholder-' . $project_id . '"></div>' .
-    '<div id="gitlab-issues-loading-' . $project_id . '">&#9203; Loading GitLab issues...</div>' .
+    return '<div id="github-issues-placeholder-' . $owner . '-' . $repo . '"></div>' .
+    '<div id="github-issues-loading-' . $owner . '-' . $repo . '">&#9203; Loading GitHub issues...</div>' .
     '<script type="module">' . $js_code . '</script>';
 }
 ?>
