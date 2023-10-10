@@ -1,15 +1,15 @@
 <?php
 
-function plugin_gitlab_issues_convert() {
+function plugin_github_issues_convert() {
     $num  = func_num_args();
     if ( $num < 3 ) {
-        return "Usage: #gitlab_issues([domain],[api_token],[project_id],[limit = 10])";
+        return "Usage: #github_issues([PAT],[owner],[repo],[limit = 5])";
     }
 
     $args = func_get_args();
-    $domain = $args[0];
-    $api_token = $args[1];
-    $project_id = $args[2];
+    $pat = $args[0];
+    $owner = $args[1];
+    $repo = $args[2];
     $limit = $args[3];
     if ($limit == '') {
       $limit = 5;
@@ -27,8 +27,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 async function getIssues(domain, project_id) {
-  const url = `https://\${domain}/api/v4/projects/\${project_id}/issues?order_by=updated_at`;
-  const options = { headers: { Authorization: `Bearer $api_token` }};
+  const url = `https://api.github.com/repos/\${owner}/\${repo}/issues?sort=updated`;
+  const options = { headers: { Authorization: `Bearer $pat` }};
   const res = await fetch(url, options);
   const issues = await res.json();
   return issues;
